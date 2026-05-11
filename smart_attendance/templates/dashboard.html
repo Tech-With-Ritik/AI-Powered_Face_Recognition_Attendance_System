@@ -141,68 +141,76 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.font.family = 'Outfit, Inter, sans-serif';
+    document.addEventListener('DOMContentLoaded', function() {
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = 'Outfit, Inter, sans-serif';
 
-    // Trend Chart
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-    const trendGradient = trendCtx.createLinearGradient(0, 0, 0, 400);
-    trendGradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
-    trendGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+        const trendChartEl = document.getElementById('trendChart');
+        if (trendChartEl) {
+            const trendCtx = trendChartEl.getContext('2d');
+            const trendGradient = trendCtx.createLinearGradient(0, 0, 0, 400);
+            trendGradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+            trendGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
 
-    new Chart(trendCtx, {
-        type: 'line',
-        data: {
-            labels: [{% for item in trend_data %}"{{ item.date }}",{% endfor %}],
-            datasets: [{
-                label: 'Attendance',
-                data: [{% for item in trend_data %}{{ item.count }},{% endfor %}],
-                borderColor: '#6366f1',
-                borderWidth: 3,
-                backgroundColor: trendGradient,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#6366f1',
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { stepSize: 1 }
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [{% for item in trend_data %}"{{ item.date }}",{% endfor %}],
+                    datasets: [{
+                        label: 'Attendance',
+                        data: [{% for item in trend_data %}{{ item.count }},{% endfor %}],
+                        borderColor: '#6366f1',
+                        borderWidth: 3,
+                        backgroundColor: trendGradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#ffffff',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
                 },
-                x: {
-                    grid: { display: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
                 }
-            }
+            });
         }
-    });
 
-    // Distribution Chart
-    const distCtx = document.getElementById('distributionChart').getContext('2d');
-    new Chart(distCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Present', 'Absent'],
-            datasets: [{
-                data: [{{ today_attendance }}, {{ absent_today }}],
-                backgroundColor: ['#6366f1', '#1e293b'],
-                borderWidth: 0,
-                hoverOffset: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            cutout: '80%'
+        const distChartEl = document.getElementById('distributionChart');
+        if (distChartEl) {
+            const distCtx = distChartEl.getContext('2d');
+            new Chart(distCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [{{ today_attendance }}, {{ absent_today }}],
+                        backgroundColor: ['#6366f1', '#475569'],
+                        borderColor: ['#ffffff', '#ffffff'],
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    cutout: '80%'
+                }
+            });
         }
     });
 </script>
-{% endblock %}
+{% endblock %}
