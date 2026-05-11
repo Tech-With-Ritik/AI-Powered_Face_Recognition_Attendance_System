@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mark Attendance | Smart Attendance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .camera-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        border: 2px solid var(--border);
+        background: #000;
+        box-shadow: var(--shadow-premium);
+    }
+    #video-feed {
+        width: 100%;
+        display: block;
+        transform: scaleX(-1);
+    }
+    #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+    .status-indicator {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .pulse {
+        width: 10px;
+        height: 10px;
+        background: var(--success);
+        border-radius: 50%;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .log-container {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .log-item {
+        padding: 0.8rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div style="margin-bottom: 2rem;">
+        <h1 class="heading-gradient" style="font-size: 2.2rem; margin-bottom: 0.5rem;">Live Attendance</h1>
+        <p style="color: var(--text-muted);">Position your face clearly within the frame for automatic recognition</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem;">
+        <!-- Left: Camera Feed -->
+        <div>
+            <div class="camera-container">
+                <video id="video-feed" autoplay playsinline muted></video>
+                <canvas id="overlay"></canvas>
+                <div class="status-indicator">
+                    <div class="pulse" id="status-pulse"></div>
+                    <span id="status-text">Scanning Active</span>
+                </div>
+            </div>
+            
+            <div class="glass-card" style="margin-top: 2rem; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <h4 style="font-size: 1rem; margin-bottom: 0.2rem;">System Status</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);" id="camera-info">Detecting camera hardware...</p>
+                </div>
+                <button id="toggle-camera" class="btn btn-primary" style="background: var(--bg-sidebar); border: 1px solid var(--border);">
+                    <i class="fa-solid fa-power-off"></i> Toggle Feed
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Recognition Logs -->
+        <div>
+            <div class="glass-card" style="height: 100%; display: flex; flex-direction: column;">
+                <h3 style="font-size: 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Session Logs
+                </h3>
+                <div id="logs" class="log-container">
+                    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-face-smile" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i>
+                        Awaiting first recognition...
+                    </div>
+                </div>
+                <div style="margin-top: auto; padding-top: 1.5rem;">
+                    <button id="clear-logs" class="btn" style="width: 100%; justify-content: center; font-size: 0.8rem; opacity: 0.6;">
+                        Clear Session Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSRF Token for JS -->
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const video = document.getElementById('video-feed');
+    const overlay = document.getElementById('overlay');
+    const logsContainer = document.getElementById('logs');
+    const statusText = document.getElementById('status-text');
+    const camInfo = document.getElementById('camera-info');
+    const csrfToken = document.getElementById('csrf-token').value;
+
+    let stream = null;
+    let isProcessing = false;
+    let lastRecognitionTime = 0;
+    const RECOGNITION_COOLDOWN = 3000; // 3 seconds between processing attempts
+
+    async function initCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720, facingMode: 'user' } 
+            });
+            video.srcObject = stream;
+            camInfo.textContent = "HD Camera Active • 720p @ 30fps";
+            
+            // Sync overlay size
+            video.onloadedmetadata = () => {
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+                startProcessingLoop();
+            };
+        } catch (err) {
+            console.error("Camera error:", err);
+            camInfo.textContent = "Error: Camera access denied or not found";
+            statusText.textContent = "Camera Offline";
+            document.getElementById('status-pulse').style.background = 'var(--danger)';
+        }
+    }
+
+    async function startProcessingLoop() {
+        if (isProcessing) return;
+        
+        const now = Date.now();
+        if (now - lastRecognitionTime > RECOGNITION_COOLDOWN) {
+            await processFrame();
+            lastRecognitionTime = now;
+        }
+        
+        requestAnimationFrame(startProcessingLoop);
+    }
+
+    async function processFrame() {
+        if (!stream) return;
+
+        // Capture frame
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const base64Image = tempCanvas.toDataURL('image/jpeg', 0.8);
+
+        try {
+            const response = await fetch("{% url 'recognition:process_frame' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ image: base64Image })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                const errorMessage = errorData.error || errorData.detail || 'Server error occurred';
+                addLog('System', 'error', errorMessage);
+                return;
+            }
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                addLog(data.student_name, 'success', `Attendance marked at ${data.time}`);
+                showSuccessFeedback(data.student_name);
+            } else if (data.status === 'duplicate') {
+                addLog(data.student_name, 'warning', 'Attendance already marked recently');
+            } else if (data.status === 'no_face') {
+                // Silent update for better UX, or small indicator
+                camInfo.textContent = "HD Camera Active • No face detected";
+            } else if (data.status === 'no_match') {
+                addLog('Unknown', 'warning', data.message || 'Face not recognized');
+                camInfo.textContent = "HD Camera Active • Face not recognized";
+            } else if (data.status === 'error') {
+                addLog('Error', 'error', data.message);
+            }
+        } catch (err) {
+            console.error("Processing error:", err);
+            addLog('Connection', 'error', 'Failed to reach server');
+        }
+    }
+
+    function addLog(name, status, message) {
+        if (logsContainer.innerHTML.includes('Awaiting first recognition')) {
+            logsContainer.innerHTML = '';
+        }
+
+        const logItem = document.createElement('div');
+        logItem.className = 'log-item';
+        const color = status === 'success' ? 'var(--success)' : 'var(--warning)';
+        
+        logItem.innerHTML = `
+            <div>
+                <strong style="display: block;">${name}</strong>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">${message}</span>
+            </div>
+            <i class="fa-solid fa-${status === 'success' ? 'check-circle' : 'clock-rotate-left'}" style="color: ${color};"></i>
+        `;
+        
+        logsContainer.prepend(logItem);
+    }
+
+    function showSuccessFeedback(name) {
+        statusText.textContent = `Recognized: ${name}`;
+        document.getElementById('status-pulse').style.background = 'var(--primary)';
+        setTimeout(() => {
+            statusText.textContent = "Scanning Active";
+            document.getElementById('status-pulse').style.background = 'var(--success)';
+        }, 3000);
+    }
+
+    initCamera();
+
+    document.getElementById('toggle-camera').addEventListener('click', () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            stream = null;
+            camInfo.textContent = "Camera Paused";
+        } else {
+            initCamera();
+        }
+    });
+
+    document.getElementById('clear-logs').addEventListener('click', () => {
+        logsContainer.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-face-smile" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i>Awaiting first recognition...</div>`;
+    });
+</script>
+{% endblock %}

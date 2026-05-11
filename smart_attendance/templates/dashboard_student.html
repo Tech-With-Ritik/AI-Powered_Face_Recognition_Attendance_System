@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="welcome-section">
+        <h1 class="welcome-text">Hello, {{ request.user.first_name|default:request.user.username }}!</h1>
+        <p class="subtitle">Here's your attendance summary.</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="glass-card stat-card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-info">
+                <h3>Total Days</h3>
+                <p class="stat-value">{{ total_days }}</p>
+            </div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3>Days Present</h3>
+                <p class="stat-value">{{ present_days }}</p>
+            </div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+                <h3>Attendance Rate</h3>
+                <p class="stat-value">{{ attendance_rate }}%</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <div class="glass-card recent-activity">
+            <div class="card-header">
+                <h2>Recent Attendance</h2>
+                <a href="#" class="view-all">View History</a>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>{{ record.date }}</td>
+                            <td>{{ record.time }}</td>
+                            <td>
+                                <span class="status-badge {% if record.status %}present{% else %}absent{% endif %}">
+                                    {% if record.status %}Present{% else %}Absent{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ record.confidence_score|floatformat:2|default:"N/A" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No attendance records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="glass-card profile-preview">
+            <div class="card-header">
+                <h2>Your Profile</h2>
+            </div>
+            <div class="profile-details">
+                <div class="profile-img-container">
+                    {% if student.image %}
+                        <img src="{{ student.image.url }}" alt="Profile" class="profile-img">
+                    {% else %}
+                        <div class="profile-placeholder">👤</div>
+                    {% endif %}
+                </div>
+                <div class="profile-info">
+                    <p><strong>Student ID:</strong> {{ student.student_id|default:student.roll_number }}</p>
+                    <p><strong>Branch:</strong> {{ student.branch }}</p>
+                    <p><strong>Email:</strong> {{ student.email }}</p>
+                </div>
+                <a href="{% url 'profile' %}" class="btn btn-secondary btn-block">Edit Profile</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .welcome-section {
+        margin-bottom: 2rem;
+    }
+    
+    .welcome-text {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+    }
+    
+    .stat-info h3 {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin: 0;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .main-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .view-all {
+        font-size: 0.9rem;
+        color: #818cf8;
+        text-decoration: none;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table th {
+        text-align: left;
+        padding: 1rem;
+        color: rgba(255, 255, 255, 0.5);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .data-table td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.present {
+        background: rgba(34, 197, 94, 0.2);
+        color: #4ade80;
+    }
+    
+    .status-badge.absent {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+    
+    .profile-details {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+    
+    .profile-img-container {
+        width: 120px;
+        height: 120px;
+        border-radius: 60px;
+        overflow: hidden;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .profile-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .profile-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .profile-info {
+        width: 100%;
+    }
+    
+    .profile-info p {
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+    
+    @media (max-width: 992px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}

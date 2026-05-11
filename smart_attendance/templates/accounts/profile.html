@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="glass-card profile-card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3rem;">
+            <div>
+                <h1 class="heading-gradient">{{ user.username }}</h1>
+                <span class="badge">{{ user.get_role_display }}</span>
+            </div>
+            <a href="{% url 'profile_edit' %}" class="btn btn-primary">
+                <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+            </a>
+        </div>
+        
+        <div class="profile-grid">
+            <div class="profile-info-item">
+                <label>Full Name</label>
+                <p>{{ user.get_full_name|default:"Not specified" }}</p>
+            </div>
+            <div class="profile-info-item">
+                <label>Email Address</label>
+                <p>{{ user.email|default:"Not specified" }}</p>
+            </div>
+            <div class="profile-info-item">
+                <label>Phone Number</label>
+                <p>{{ user.phone|default:"Not specified" }}</p>
+            </div>
+            <div class="profile-info-item">
+                <label>Department / Branch</label>
+                <p>{{ user.department|default:"Not specified" }}</p>
+            </div>
+        </div>
+        
+        {% if user.role == 'student' %}
+        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+            <h3 style="margin-bottom: 1.5rem;">Associated Student Record</h3>
+            <div style="display: flex; gap: 2rem; align-items: center;">
+                <div style="width: 100px; height: 100px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.05); border: 2px solid var(--border);">
+                    {% if user.student_profile.image %}
+                    <img src="{{ user.student_profile.image.url }}" style="width: 100%; height: 100%; object-fit: cover;">
+                    {% else %}
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem;">👤</div>
+                    {% endif %}
+                </div>
+                <div>
+                    <p><strong>Student ID:</strong> {{ user.student_profile.student_id }}</p>
+                    <p><strong>Roll number:</strong> {{ user.student_profile.roll_number }}</p>
+                    <p><strong>Branch:</strong> {{ user.student_profile.branch }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .profile-container {
+        padding: 2rem 0;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .profile-card {
+        padding: 3rem;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: var(--primary-dark);
+        color: white;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+    
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2.5rem;
+    }
+    
+    @media (max-width: 600px) {
+        .profile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .profile-info-item label {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .profile-info-item p {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: white;
+    }
+</style>
+{% endblock %}

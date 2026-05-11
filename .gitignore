@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+sasenv/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+/staticfiles/
+
+# Environment files
+*.env
+
+# VS Code
+.vscode/
+
+# IDE files
+*.pyproj
+*.suo
+*.user
+*.userosscache
+*.sln
+*.csproj

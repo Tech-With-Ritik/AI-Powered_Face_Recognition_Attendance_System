@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard | Smart Attendance{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem;">
+        <div>
+            <h1 class="heading-gradient" style="font-size: 2.2rem; margin-bottom: 0.5rem;">Executive Overview</h1>
+            <p style="color: var(--text-muted);">Real-time attendance analytics and system status</p>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <a href="{% url 'recognition:mark_attendance' %}" class="btn btn-primary">
+                <i class="fa-solid fa-camera"></i> Live Recognition
+            </a>
+            <a href="{% url 'students:add_student' %}" class="btn glass-card" style="margin-bottom: 0; padding: 0.75rem 1.5rem;">
+                <i class="fa-solid fa-user-plus"></i> New Student
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="glass-card stat-card">
+            <span class="stat-label">Total Students</span>
+            <span class="stat-value text-primary">{{ total_students }}</span>
+            <div style="font-size: 0.8rem; color: var(--success);"><i class="fa-solid fa-arrow-up"></i> System Active</div>
+        </div>
+        <div class="glass-card stat-card">
+            <span class="stat-label">Period Attendance</span>
+            <span class="stat-value" style="color: var(--accent);">{{ total_attendance }}</span>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">From {{ start_date }} to {{ end_date }}</p>
+        </div>
+        <div class="glass-card stat-card">
+            <span class="stat-label">Today's Presence</span>
+            <span class="stat-value" style="color: var(--success);">{{ today_attendance }}</span>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">{{ today_attendance }} out of {{ total_students }} registered</div>
+        </div>
+        <div class="glass-card stat-card">
+            <span class="stat-label">Attendance Rate</span>
+            <span class="stat-value" style="color: var(--warning);">{{ attendance_rate|floatformat:1 }}%</span>
+            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 1rem; overflow: hidden;">
+                <div style="width: {{ attendance_rate }}%; height: 100%; background: var(--warning); border-radius: 10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 320px; gap: 2rem;">
+        <!-- Filter & Trend -->
+        <div>
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 1.2rem;">Attendance Trend</h3>
+                    <form method="get" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="date" name="start_date" value="{{ start_date }}" style="background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem;">
+                        <span style="color: var(--text-muted);">to</span>
+                        <input type="date" name="end_date" value="{{ end_date }}" style="background: var(--bg-main); border: 1px solid var(--border); color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem;">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Filter</button>
+                    </form>
+                </div>
+                <div style="height: 350px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3 style="font-size: 1.2rem; margin-bottom: 1.5rem;">Recent Logs</h3>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="text-align: left; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem;">
+                                <th style="padding: 1rem;">STUDENT</th>
+                                <th style="padding: 1rem;">DATE</th>
+                                <th style="padding: 1rem;">TIME</th>
+                                <th style="padding: 1rem;">CONFIDENCE</th>
+                                <th style="padding: 1rem;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 0.9rem;">
+                            {% for attendance in recent_attendance %}
+                            <tr style="border-bottom: 1px solid var(--border); transition: background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                                <td style="padding: 1rem; font-weight: 500;">{{ attendance.student.name }}</td>
+                                <td style="padding: 1rem;">{{ attendance.date }}</td>
+                                <td style="padding: 1rem;">{{ attendance.time|time:"H:i" }}</td>
+                                <td style="padding: 1rem;">
+                                    {% if attendance.confidence_score %}
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+                                            <div style="width: {% widthratio attendance.confidence_score 1 100 %}%; height: 100%; background: var(--success); border-radius: 2px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.75rem; color: var(--success);">{{ attendance.confidence_score|floatformat:2 }}</span>
+                                    </div>
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td style="padding: 1rem;"><span style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600;">PRESENT</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-muted);">No records found in this range</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+            <div class="glass-card">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem;">Daily Distribution</h3>
+                <div style="height: 200px;">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.8rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);"><i class="fa-solid fa-circle" style="color: var(--primary); font-size: 0.6rem; margin-right: 0.5rem;"></i> Present Today</span>
+                        <span>{{ today_attendance }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);"><i class="fa-solid fa-circle" style="color: var(--border); font-size: 0.6rem; margin-right: 0.5rem;"></i> Absent Today</span>
+                        <span>{{ absent_today }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));">
+                <i class="fa-solid fa-cloud-arrow-down" style="font-size: 2rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Generate Report</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">Download complete attendance data for the selected period in CSV format.</p>
+                <a href="{% url 'export_csv' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-download"></i> Export Data
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = 'Outfit, Inter, sans-serif';
+
+    // Trend Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const trendGradient = trendCtx.createLinearGradient(0, 0, 0, 400);
+    trendGradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+    trendGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: [{% for item in trend_data %}"{{ item.date }}",{% endfor %}],
+            datasets: [{
+                label: 'Attendance',
+                data: [{% for item in trend_data %}{{ item.count }},{% endfor %}],
+                borderColor: '#6366f1',
+                borderWidth: 3,
+                backgroundColor: trendGradient,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#6366f1',
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { stepSize: 1 }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+
+    // Distribution Chart
+    const distCtx = document.getElementById('distributionChart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Present', 'Absent'],
+            datasets: [{
+                data: [{{ today_attendance }}, {{ absent_today }}],
+                backgroundColor: ['#6366f1', '#1e293b'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            cutout: '80%'
+        }
+    });
+</script>
+{% endblock %}
